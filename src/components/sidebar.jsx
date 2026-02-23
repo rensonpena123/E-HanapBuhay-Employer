@@ -40,14 +40,25 @@ const Sidebar = () => {
             <Link
               key={item.name}
               to={item.path}
-              className={`flex items-center gap-4 px-6 py-3 transition-colors ${
-                isActive 
-                  ? 'bg-[#2b3a55] border-l-10 border-brand-yellow text-brand-yellow' 
-                  : 'border-l-10 border-transparent text-white hover:bg-white/5'
-              }`}
+              className={`
+                flex items-center gap-4 px-6 py-3 transition-all duration-200
+                border-l-[9px]
+                ${
+                  isActive
+                    ? "border-brand-yellow bg-[#2b3a55] text-brand-yellow"
+                    : "border-transparent text-white hover:bg-white/5"
+                }
+              `}
             >
-              <item.icon size={22} className={isActive ? 'text-brand-yellow' : 'text-white'} />
-              <span className={`text-[15px] ${isActive ? 'font-bold' : 'font-light'}`}>
+              <item.icon
+                size={22}
+                className={isActive ? "text-brand-yellow" : "text-white"}
+              />
+              <span
+                className={`text-[15px] ${
+                  isActive ? "font-bold" : "font-light"
+                }`}
+              >
                 {item.name}
               </span>
             </Link>
