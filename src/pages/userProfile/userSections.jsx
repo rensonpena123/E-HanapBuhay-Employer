@@ -30,7 +30,6 @@ const PasswordInput = ({ value, onChange, show, onToggle, placeholder }) => (
   </div>
 );
 
-// ─── Section: Profile Picture + Account Info ──────────────────────────────────
 export const ProfileTopSection = ({ profile, onAvatarChange, onEditUsername }) => {
   const fileRef = useRef(null);
 
@@ -89,7 +88,6 @@ export const ProfileTopSection = ({ profile, onAvatarChange, onEditUsername }) =
   );
 };
 
-// ─── Section: Password Reset + Session Timeout ────────────────────────────────
 export const SecuritySection = ({ sessionTimeout, onTimeoutChange }) => {
   const navigate = useNavigate();
   const [current, setCurrent] = useState('');
@@ -103,7 +101,6 @@ export const SecuritySection = ({ sessionTimeout, onTimeoutChange }) => {
   const [timeoutSaved, setTimeoutSaved] = useState(false);
   const timerRef = useRef(null);
 
-  // ── Session timeout logic ────────────────────────────────────────────────
   const resetTimer = useCallback(() => {
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = window.setTimeout(() => {
@@ -121,7 +118,6 @@ export const SecuritySection = ({ sessionTimeout, onTimeoutChange }) => {
     };
   }, [resetTimer]);
 
-  // ── Password change ──────────────────────────────────────────────────────
   const handleChangePassword = () => {
     const error = validatePassword(current, newPass, confirm);
     if (error) { setMessage({ type: 'error', text: error }); return; }
@@ -129,7 +125,6 @@ export const SecuritySection = ({ sessionTimeout, onTimeoutChange }) => {
     setCurrent(''); setNewPass(''); setConfirm('');
   };
 
-  // ── Save timeout ─────────────────────────────────────────────────────────
   const handleSaveTimeout = () => {
     const val = Math.min(120, Math.max(5, localTimeout));
     setLocalTimeout(val);
@@ -198,7 +193,6 @@ export const SecuritySection = ({ sessionTimeout, onTimeoutChange }) => {
   );
 };
 
-// ─── Section: Create Business Profile ────────────────────────────────────────
 export const BusinessProfileSection = ({ business, onChange }) => {
   const selectClass = `${inputClass} appearance-none cursor-pointer`;
   const isOther = business.industry === 'Other';
@@ -248,7 +242,6 @@ export const BusinessProfileSection = ({ business, onChange }) => {
   );
 };
 
-// ─── Section: Upload DTI/SEC, Mayor's Permit (PDF only) ──────────────────────
 export const DocumentUploadSection = ({ docs, onUpload }) => {
   const fileRefs = useRef({});
   const [errors, setErrors] = useState({});
@@ -309,7 +302,6 @@ export const DocumentUploadSection = ({ docs, onUpload }) => {
   );
 };
 
-// ─── Section: Update Business Details (PH Validation) ────────────────────────
 export const BusinessDetailsSection = ({ business, onChange }) => {
   const [errors, setErrors] = useState({ registrationNumber: '', taxId: '' });
   const [saved,  setSaved]  = useState(false);

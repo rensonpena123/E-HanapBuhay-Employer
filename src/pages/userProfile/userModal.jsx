@@ -1,10 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 
-// ─── Shared Input Style ───────────────────────────────────────────────────────
 const inputClass = "w-full bg-gray-100 border border-gray-200 text-gray-800 text-sm rounded-lg px-4 py-2.5 focus:outline-none focus:border-brand-yellow/70 focus:bg-white transition-colors";
 
-// ─── Edit Username Modal ──────────────────────────────────────────────────────
 const UserModal = ({ isOpen, currentUsername, onClose, onSave }) => {
   const [value, setValue] = useState('');
   const [error, setError] = useState('');
