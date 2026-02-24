@@ -1,6 +1,8 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
+import { Toaster } from 'react-hot-toast'; 
+import ForgotPassword from './pages/login/forgotPasswordModal.jsx';
 import Layout from './components/layout.jsx';
 import Login from './pages/login/login.jsx'; 
 import Signup from './pages/signup/Signup.jsx';
@@ -17,9 +19,9 @@ const AnimatedRoutes = () => {
   return (
     <AnimatePresence mode="wait">
       <Routes location={location} key={location.pathname}>
-
         {/* Auth routes */}
         <Route path="/" element={<Login />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/signup" element={<Signup />} />
 
         {/* Protected routes with Layout */}
@@ -31,7 +33,6 @@ const AnimatedRoutes = () => {
           <Route path="/compliance" element={<Compliance />} />
           <Route path="/users" element={<Profile />} />
         </Route>
-
       </Routes>
     </AnimatePresence>
   );
@@ -40,6 +41,18 @@ const AnimatedRoutes = () => {
 function App() {
   return (
     <BrowserRouter>
+      <Toaster 
+        position="top-center" 
+        reverseOrder={false} 
+        toastOptions={{
+          style: {
+            borderRadius: '1rem',
+            background: '#1a1a1a',
+            color: '#fff',
+            border: '1px solid #fbc02d',
+          },
+        }}
+      />
       <AnimatedRoutes />
     </BrowserRouter>
   );
