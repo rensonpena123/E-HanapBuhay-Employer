@@ -21,7 +21,6 @@ const Login = () => {
   const handleLogin = async (e) => {
     e.preventDefault();
 
-    // 1. Client-side Validation
     if (!email.trim() || !password.trim()) {
       setErrorMessage('Please enter both email and password.');
       return;
@@ -37,21 +36,25 @@ const Login = () => {
     const loginToast = toast.loading('Verifying credentials...');
 
     try {
-      // API Call
       const response = await loginUser({ email, password });
 
-      // The backend returns a success boolean
       if (response.success) {
-        // Store session data: JWT and User info
+        const user = response.data.user;
+
+        if (user.role !== 'employer') {
+          toast.error("Access denied. This login is for employers only.", { id: loginToast });
+          setErrorMessage("Unauthorized: This account is not an employer account.");
+          setIsLoading(false);
+          return; 
+        }
+
         localStorage.setItem('token', response.data.token);
-        localStorage.setItem('user', JSON.stringify(response.data.user));
+        localStorage.setItem('user', JSON.stringify(user));
         
         toast.success(response.message || "Welcome back!", { id: loginToast });
         
-        // Brief delay so the user sees the success toast
         setTimeout(() => navigate('/dashboard'), 1000); 
       } else {
-        // Handle database-driven errors: "Invalid email or password" or "Account deactivated"
         toast.error(response.message || "Login failed", { id: loginToast });
         setErrorMessage(response.message);
       }
@@ -79,7 +82,6 @@ const Login = () => {
             Welcome Back,<br />Employer!
           </h1>
 
-          {/* LOGIN FORM */}
           <form className="w-full space-y-5" onSubmit={handleLogin}>
             <div className="w-full">
               <input

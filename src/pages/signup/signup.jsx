@@ -57,7 +57,9 @@ const Signup = () => {
       full_name: formData.name, 
       email: formData.email,
       password: formData.password,
-      location: formData.address 
+      location: formData.address,
+      role: 'employer',
+      role_id: 2
     };
 
     setIsLoading(true);
