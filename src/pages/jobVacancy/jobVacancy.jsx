@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Briefcase, CheckCircle, Clock, XCircle, Plus, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
-import toast from 'react-hot-toast';
 import StatCard from '../../components/statCard.jsx';
 import FilterBar from '../../components/filters/filterBar.jsx';
 import FilterItem from '../../components/filters/filterItem.jsx';
 import JobTable from './jobTable.jsx';
 import JobModal from './jobModal.jsx';
+import AlertModal from '../../components/alertModal.jsx';
 import { fetchAllJobsAdmin } from '../../api/jobVacancy.js';
 import { STATUS_OPTIONS, ITEMS_PER_PAGE, getStatusLabel } from './jobHelpers.jsx';
 
@@ -22,6 +22,18 @@ const JobVacancy = () => {
   const [modal, setModal]         = useState({ isOpen: false, type: '', data: null });
   const [currentPage, setCurrentPage] = useState(1);
 
+  // ── Alert modal state ──────────────────────────────────────────────────────
+  const [alert, setAlert] = useState({ isOpen: false, type: 'success', title: '', message: '' });
+
+  // ── Show alert helper ──────────────────────────────────────────────────────
+  const showAlert = useCallback((type, title, message) => {
+    setAlert({ isOpen: true, type, title, message });
+  }, []);
+
+  const closeAlert = useCallback(() => {
+    setAlert(prev => ({ ...prev, isOpen: false }));
+  }, []);
+
   // ── Fetch jobs from backend ────────────────────────────────────────────────
   const loadJobs = useCallback(async () => {
     setLoading(true);
@@ -31,12 +43,12 @@ const JobVacancy = () => {
       const list = Array.isArray(res) ? res : (res.data ?? []);
       setJobs(list);
     } catch (err) {
-      toast.error('Failed to load job vacancies.');
+      showAlert('error', 'Failed to Load', 'Unable to load job vacancies. Please try again.');
       setJobs([]);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [showAlert]);
 
   useEffect(() => {
     loadJobs();
@@ -47,13 +59,15 @@ const JobVacancy = () => {
     setCurrentPage(1);
   }, [filters]);
 
-  // ── Client-side filtering ──────────────────────────────────────────────────
+  // ── Client-side filtering (real-time on every filter change) ───────────────
   const filteredJobs = jobs.filter((job) => {
-    const searchMatch = job.title?.toLowerCase().includes(filters.search.toLowerCase());
+    const searchTerm  = filters.search.toLowerCase().trim();
+    const searchMatch = !searchTerm || job.title?.toLowerCase().includes(searchTerm);
     const statusMatch = filters.status === 'Any' || job.status === filters.status;
     const jobDate     = new Date(job.posted_at ?? job.created_at);
-    const fromDate    = filters.dateFrom ? new Date(filters.dateFrom) : null;
-    const toDate      = filters.dateTo   ? new Date(filters.dateTo)   : null;
+    // Normalize toDate to end-of-day so the selected day is fully included
+    const fromDate    = filters.dateFrom ? new Date(filters.dateFrom + 'T00:00:00') : null;
+    const toDate      = filters.dateTo   ? new Date(filters.dateTo   + 'T23:59:59') : null;
     const dateMatch   = (!fromDate || jobDate >= fromDate) && (!toDate || jobDate <= toDate);
     return searchMatch && statusMatch && dateMatch;
   });
@@ -118,14 +132,14 @@ const JobVacancy = () => {
         </div>
       </div>
 
-      {/* ── Filters ── */}
+      {/* ── Filters (real-time — bound directly to state) ── */}
       <FilterBar onClear={clearFilters}>
         {/* Search */}
         <FilterItem label="Search">
           <input
             type="text"
             value={filters.search}
-            onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+            onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
             placeholder="Search job title…"
             className="bg-[#2b3a55] text-white p-2 rounded border border-gray-600 text-sm outline-none w-full sm:w-52"
           />
@@ -137,14 +151,14 @@ const JobVacancy = () => {
             <input
               type="date"
               value={filters.dateFrom}
-              onChange={(e) => setFilters({ ...filters, dateFrom: e.target.value })}
+              onChange={(e) => setFilters(prev => ({ ...prev, dateFrom: e.target.value }))}
               className="bg-[#2b3a55] text-white p-2 rounded border border-gray-600 text-sm outline-none w-full sm:w-auto"
             />
             <span className="text-brand-yellow font-bold text-xs hidden sm:inline">To</span>
             <input
               type="date"
               value={filters.dateTo}
-              onChange={(e) => setFilters({ ...filters, dateTo: e.target.value })}
+              onChange={(e) => setFilters(prev => ({ ...prev, dateTo: e.target.value }))}
               className="bg-[#2b3a55] text-white p-2 rounded border border-gray-600 text-sm outline-none w-full sm:w-auto"
             />
           </div>
@@ -154,7 +168,7 @@ const JobVacancy = () => {
         <FilterItem label="Status">
           <select
             value={filters.status}
-            onChange={(e) => setFilters({ ...filters, status: e.target.value })}
+            onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
             className="bg-[#2b3a55] text-white p-2 rounded border border-gray-600 w-full sm:w-44 text-sm outline-none"
           >
             {STATUS_OPTIONS.map(opt => (
@@ -228,15 +242,25 @@ const JobVacancy = () => {
         )}
       </div>
 
-      {/* ── Modal ── */}
+      {/* ── Job Action Modal ── */}
       {modal.isOpen && (
         <JobModal
           type={modal.type}
           data={modal.data}
           onClose={() => setModal({ isOpen: false, type: '', data: null })}
           onRefresh={loadJobs}
+          onAlert={showAlert}
         />
       )}
+
+      {/* ── Alert Response Modal ── */}
+      <AlertModal
+        isOpen={alert.isOpen}
+        type={alert.type}
+        title={alert.title}
+        message={alert.message}
+        onClose={closeAlert}
+      />
     </div>
   );
 };

@@ -6,20 +6,35 @@
 
 body {
   background-color: #f9fafb;
-
   font-family: var(--font-sans);
 }
 
 @theme {
-
   --font-sans: "Roboto", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
-
   --color-brand-dark: #1a263e;
   --color-brand-yellow: #fbc02d;
 }
 
-/* AlertModal entrance animation */
-@keyframes fadeScaleIn {
-  from { opacity: 0; transform: scale(0.88); }
+/* AlertModal entrance — spring overshoot for a lively feel */
+@keyframes alertIn {
+  from { opacity: 0; transform: scale(0.82); }
   to   { opacity: 1; transform: scale(1); }
+}
+
+/* AlertModal exit — quick fade+shrink */
+@keyframes alertOut {
+  from { opacity: 1; transform: scale(1); }
+  to   { opacity: 0; transform: scale(0.88); }
+}
+
+/* Generic modal slide-up entrance for panel modals (Resume / Update Status) */
+@keyframes modalSlideIn {
+  from { opacity: 0; transform: translateY(24px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0)   scale(1); }
+}
+
+/* Generic modal slide-down exit */
+@keyframes modalSlideOut {
+  from { opacity: 1; transform: translateY(0)   scale(1); }
+  to   { opacity: 0; transform: translateY(16px) scale(0.97); }
 }

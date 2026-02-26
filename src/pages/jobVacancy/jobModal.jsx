@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Trash2, Briefcase, FileText, Loader2, Building2 } from 'lucide-react';
-import toast from 'react-hot-toast';
 import {
   createJobPost,
   updateJobPost,
@@ -12,13 +11,10 @@ import {
 } from '../../api/jobVacancy.js';
 import { JOB_TYPE_OPTIONS, WORK_SETUP_OPTIONS } from './jobHelpers.jsx';
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Default blank form — matches job_posts schema exactly.
-// company_name replaces company_id (free-text input per UX feedback).
-// ─────────────────────────────────────────────────────────────────────────────
+// ── Default blank form (matches job_posts schema) ─────────────────────────────
 const BLANK_FORM = {
   title: '',
-  company_name: '',       // free-text: user types the company name directly
+  company_name: '',
   description: '',
   responsibilities: '',
   requirements: '',
@@ -31,47 +27,33 @@ const BLANK_FORM = {
   experience_years: 0,
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// formatSalaryDisplay — converts a raw number string into comma-formatted
-// display string while the user is typing. e.g. "25000" → "25,000"
-// ─────────────────────────────────────────────────────────────────────────────
+// ── formatSalaryDisplay — "25000" → "25,000" ──────────────────────────────────
 const formatSalaryDisplay = (raw) => {
-  // Strip everything except digits
   const digits = String(raw).replace(/[^0-9]/g, '');
   if (!digits) return '';
-  // Add comma separators
   return Number(digits).toLocaleString('en-PH');
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// parseSalaryRaw — strips commas to get the plain number for form state.
-// e.g. "25,000" → "25000"
-// ─────────────────────────────────────────────────────────────────────────────
+// ── parseSalaryRaw — "25,000" → "25000" ──────────────────────────────────────
 const parseSalaryRaw = (display) => String(display).replace(/,/g, '');
 
-// ─────────────────────────────────────────────────────────────────────────────
-// SalaryInput — controlled input that shows comma-formatted value visually
-// but stores raw digits in form state. Uses a display-only state.
-// ─────────────────────────────────────────────────────────────────────────────
+// ── SalaryInput — shows comma-formatted value, stores raw digits ──────────────
 const SalaryInput = ({ value, onChange, placeholder }) => {
-  // displayValue is what the user sees (with commas)
   const [displayValue, setDisplayValue] = useState(
     value ? formatSalaryDisplay(value) : '',
   );
   const inputRef = useRef(null);
 
-  // Sync if parent resets the value (e.g. form clear)
   useEffect(() => {
     setDisplayValue(value ? formatSalaryDisplay(value) : '');
   }, [value]);
 
   const handleChange = (e) => {
     const raw = parseSalaryRaw(e.target.value);
-    // Only allow digits
     if (raw && !/^\d+$/.test(raw)) return;
     const formatted = raw ? formatSalaryDisplay(raw) : '';
     setDisplayValue(formatted);
-    onChange(raw); // pass raw number string to parent
+    onChange(raw);
   };
 
   return (
@@ -92,15 +74,33 @@ const SalaryInput = ({ value, onChange, placeholder }) => {
   );
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// JobModal — main modal component
-// ─────────────────────────────────────────────────────────────────────────────
-const JobModal = ({ type, data, onClose, onRefresh }) => {
+// ── Action label helpers ──────────────────────────────────────────────────────
+const ACTION_LABELS = {
+  create:   { confirm: 'List Vacancy',  title: 'Create Job Vacancy' },
+  edit:     { confirm: 'Save Changes',  title: 'Edit Vacancy' },
+  delete:   { confirm: 'Delete',        title: 'Confirm Delete' },
+  fill:     { confirm: 'Confirm',       title: 'Mark as Filled' },
+  close:    { confirm: 'Confirm',       title: 'Close Vacancy' },
+  activate: { confirm: 'Confirm',       title: 'Activate Vacancy' },
+};
+
+// ── Success messages per action type ─────────────────────────────────────────
+const SUCCESS_MESSAGES = {
+  create:   { title: 'Vacancy Posted!',    message: 'The job vacancy has been created successfully.' },
+  edit:     { title: 'Changes Saved!',     message: 'The job vacancy has been updated successfully.' },
+  delete:   { title: 'Vacancy Deleted',    message: 'The job vacancy has been removed from the system.' },
+  fill:     { title: 'Marked as Filled',   message: 'The vacancy has been marked as filled.' },
+  close:    { title: 'Vacancy Closed',     message: 'The vacancy has been closed successfully.' },
+  activate: { title: 'Vacancy Activated',  message: 'The vacancy is now active and visible to applicants.' },
+};
+
+// ── JobModal — main modal (create / edit / confirm actions) ───────────────────
+const JobModal = ({ type, data, onClose, onRefresh, onAlert }) => {
   const [formData, setFormData] = useState(() => {
     if (type === 'edit' && data) {
       return {
         title:            data.title            ?? '',
-        company_name:     data.company_name     ?? '',  // populated from JOIN in adminGetAllJobs
+        company_name:     data.company_name     ?? '',
         description:      data.description      ?? '',
         responsibilities: data.responsibilities ?? '',
         requirements:     data.requirements     ?? '',
@@ -123,7 +123,7 @@ const JobModal = ({ type, data, onClose, onRefresh }) => {
 
   const isForm = type === 'create' || type === 'edit';
 
-  // Load reference dropdowns (categories + barangays only — company is now free-text)
+  // Load reference dropdowns for form types
   useEffect(() => {
     if (!isForm) return;
     const loadRef = async () => {
@@ -136,7 +136,7 @@ const JobModal = ({ type, data, onClose, onRefresh }) => {
         setCategories(cats.data ?? cats ?? []);
         setBarangays(bars.data  ?? bars  ?? []);
       } catch {
-        toast.error('Failed to load reference data.');
+        onAlert('error', 'Reference Data Error', 'Failed to load categories or barangays. Please close and try again.');
       } finally {
         setRefLoading(false);
       }
@@ -154,15 +154,18 @@ const JobModal = ({ type, data, onClose, onRefresh }) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
+  // ── handleConfirm — executes API action and triggers success/error alert ───
   const handleConfirm = async () => {
+    // Validate required fields
     if (isForm && !formData.title.trim()) {
-      toast.error('Job title is required.');
+      onAlert('error', 'Validation Error', 'Job title is required before submitting.');
       return;
     }
 
     setLoading(true);
     try {
       if (type === 'create') {
+        // Create job vacancy
         const salaryMin = formData.salary_min ? Number(parseSalaryRaw(formData.salary_min)) : null;
         const salaryMax = formData.salary_max ? Number(parseSalaryRaw(formData.salary_max)) : null;
         const payload = {
@@ -182,9 +185,9 @@ const JobModal = ({ type, data, onClose, onRefresh }) => {
         };
         const res = await createJobPost(payload);
         if (!res.success && (res.error || res.message)) throw new Error(res.error || res.message);
-        toast.success('Job vacancy posted successfully!');
 
       } else if (type === 'edit') {
+        // Save changes to existing vacancy
         const salaryMin = formData.salary_min ? Number(parseSalaryRaw(formData.salary_min)) : null;
         const salaryMax = formData.salary_max ? Number(parseSalaryRaw(formData.salary_max)) : null;
         const payload = {
@@ -204,36 +207,39 @@ const JobModal = ({ type, data, onClose, onRefresh }) => {
         };
         const res = await updateJobPost(data.id, payload);
         if (!res.success && (res.error || res.message)) throw new Error(res.error || res.message);
-        toast.success('Job vacancy updated successfully!');
 
       } else if (type === 'delete') {
+        // Delete vacancy
         const res = await deleteJobPost(data.id);
         if (!res.success && res.error) throw new Error(res.error);
-        toast.success('Job vacancy deleted.');
 
       } else {
-        // activate | fill | close
+        // Status change: activate | fill | close
         const statusMap = { activate: 'active', fill: 'filled', close: 'closed' };
         const newStatus = statusMap[type];
         const res = await updateJobStatus(data.id, newStatus);
         if (!res.success && res.error) throw new Error(res.error);
-        toast.success(`Vacancy marked as "${newStatus}".`);
       }
 
+      // Success — close modal, refresh list, show success alert
       onRefresh();
       onClose();
+      const { title, message } = SUCCESS_MESSAGES[type] ?? { title: 'Success!', message: 'Action completed.' };
+      onAlert('success', title, message);
+
     } catch (err) {
-      toast.error(err.message || 'Something went wrong. Please try again.');
+      // Failed — close modal, show error alert
+      onClose();
+      onAlert('error', 'Action Failed', err.message || 'Something went wrong. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
-  // ── Render via portal so the overlay always covers the FULL viewport,
-  //    including the sidebar, header, and any stacking context parents.
+  // ── Portal render ─────────────────────────────────────────────────────────
   return createPortal(
     <>
-      {/* ── Full-viewport overlay — fixed, covers absolutely everything ── */}
+      {/* Full-viewport overlay */}
       <div
         className="fixed inset-0 bg-black/60 backdrop-blur-sm"
         style={{ zIndex: 10000 }}
@@ -241,11 +247,10 @@ const JobModal = ({ type, data, onClose, onRefresh }) => {
         aria-hidden="true"
       />
 
-      {/* ── Modal panel — centered above the overlay ── */}
+      {/* Centered modal panel */}
       <div
         className="fixed inset-0 flex items-center justify-center p-4"
         style={{ zIndex: 10001 }}
-        // Clicking the centering wrapper but NOT the panel should close
         onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
       >
         <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden animate-in zoom-in-95 duration-200">
@@ -254,8 +259,8 @@ const JobModal = ({ type, data, onClose, onRefresh }) => {
           <div className="flex justify-between items-center p-6 border-b border-gray-100 bg-gray-50/50">
             <h3 className="text-sm font-black text-brand-dark uppercase tracking-widest flex items-center gap-2">
               {isForm
-                ? <><FileText size={18} />{type === 'create' ? 'Post New Vacancy' : 'Edit Vacancy'}</>
-                : 'Confirm Action'}
+                ? <><FileText size={18} />{ACTION_LABELS[type]?.title}</>
+                : ACTION_LABELS[type]?.title ?? 'Confirm Action'}
             </h3>
             <button
               onClick={onClose}
@@ -289,7 +294,7 @@ const JobModal = ({ type, data, onClose, onRefresh }) => {
                     />
                   </div>
 
-                  {/* Company — FREE TEXT input (not a dropdown) */}
+                  {/* Company Name — free-text input */}
                   <div className="md:col-span-2">
                     <label className="block text-[10px] font-black text-gray-400 uppercase mb-1.5 ml-1">
                       Company Name
@@ -374,7 +379,7 @@ const JobModal = ({ type, data, onClose, onRefresh }) => {
                     </select>
                   </div>
 
-                  {/* Salary Min — comma-formatted */}
+                  {/* Salary Min */}
                   <div>
                     <label className="block text-[10px] font-black text-gray-400 uppercase mb-1.5 ml-1">
                       Salary Min
@@ -386,7 +391,7 @@ const JobModal = ({ type, data, onClose, onRefresh }) => {
                     />
                   </div>
 
-                  {/* Salary Max — comma-formatted */}
+                  {/* Salary Max */}
                   <div>
                     <label className="block text-[10px] font-black text-gray-400 uppercase mb-1.5 ml-1">
                       Salary Max
@@ -426,7 +431,7 @@ const JobModal = ({ type, data, onClose, onRefresh }) => {
                     />
                   </div>
 
-                  {/* Spacer to keep grid even */}
+                  {/* Spacer */}
                   <div className="hidden md:block" />
 
                   {/* Description */}
@@ -474,7 +479,7 @@ const JobModal = ({ type, data, onClose, onRefresh }) => {
                 </div>
               )
             ) : (
-              /* ── CONFIRMATION DIALOG ── */
+              // ── Confirmation dialog (delete / fill / close / activate) ──
               <div className="text-center py-4">
                 <div className={`w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-6 rotate-3 ${
                   type === 'delete' ? 'bg-red-100 text-red-600' : 'bg-brand-yellow/20 text-brand-yellow'
@@ -482,7 +487,10 @@ const JobModal = ({ type, data, onClose, onRefresh }) => {
                   {type === 'delete' ? <Trash2 size={40} /> : <Briefcase size={40} />}
                 </div>
                 <h4 className="text-xl font-bold text-gray-800 mb-2 capitalize">
-                  Proceed with "{type}"?
+                  {type === 'fill'     && 'Mark this vacancy as Filled?'}
+                  {type === 'close'    && 'Close this vacancy?'}
+                  {type === 'delete'   && 'Delete this vacancy?'}
+                  {type === 'activate' && 'Activate this vacancy?'}
                 </h4>
                 <p className="text-gray-500 text-sm">
                   Target Listing:{' '}
@@ -507,9 +515,7 @@ const JobModal = ({ type, data, onClose, onRefresh }) => {
                   ${type === 'delete' ? 'bg-red-600 hover:bg-red-700' : 'bg-brand-dark hover:bg-[#243252]'}`}
               >
                 {loading && <Loader2 size={16} className="animate-spin" />}
-                {isForm
-                  ? (type === 'create' ? 'List Vacancy' : 'Save Changes')
-                  : 'Confirm'}
+                {ACTION_LABELS[type]?.confirm ?? 'Confirm'}
               </button>
             </div>
           </div>

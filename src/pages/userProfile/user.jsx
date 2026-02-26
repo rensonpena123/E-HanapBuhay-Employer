@@ -194,8 +194,6 @@ const Profile = () => {
     <PageTransition>
       <div className="p-6 min-h-full">
 
-        <h1 className="text-2xl font-bold text-brand-dark mb-6">Profile</h1>
-
         {/* Row 1: Account & Profile (left) | Business Permit (right) */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4 items-start">
           <ProfileTopSection

@@ -1,7 +1,6 @@
 import React, { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
-import { Toaster } from 'react-hot-toast';
 import Layout from './components/layout.jsx';
 import Login from './pages/login/login.jsx';
 import Signup from './pages/signup/signup.jsx';
@@ -61,12 +60,12 @@ const AnimatedRoutes = () => {
             <Layout />
           </EmployerGuard>
         }>
-          <Route path="/dashboard"            element={<Dashboard />} />
-          <Route path="/jobVacancy"           element={<JobVacancy />} />
-          <Route path="/applicationManagement"element={<ApplicationManagement />} />
-          <Route path="/reports"              element={<Reports />} />
-          <Route path="/compliance"           element={<Compliance />} />
-          <Route path="/users"                element={<Profile />} />
+          <Route path="/dashboard"             element={<Dashboard />} />
+          <Route path="/jobVacancy"            element={<JobVacancy />} />
+          <Route path="/applicationManagement" element={<ApplicationManagement />} />
+          <Route path="/reports"               element={<Reports />} />
+          <Route path="/compliance"            element={<Compliance />} />
+          <Route path="/users"                 element={<Profile />} />
         </Route>
       </Routes>
     </AnimatePresence>
@@ -76,19 +75,6 @@ const AnimatedRoutes = () => {
 function App() {
   return (
     <BrowserRouter>
-      {/* react-hot-toast kept for lightweight inline feedback in non-critical places */}
-      <Toaster
-        position="top-center"
-        reverseOrder={false}
-        toastOptions={{
-          style: {
-            borderRadius: '1rem',
-            background: '#1a1a1a',
-            color: '#fff',
-            border: '1px solid #fbc02d',
-          },
-        }}
-      />
       <AnimatedRoutes />
     </BrowserRouter>
   );
