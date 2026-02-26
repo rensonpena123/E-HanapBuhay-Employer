@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import PageTransition from '../../components/pageTransition.jsx';
 import UserModal from './userModal.jsx';
+import AlertModal from '../../components/alertModal.jsx';
 import {
   ProfileTopSection,
   SecuritySection,
@@ -10,6 +11,8 @@ import {
 import { INITIAL_PROFILE, INITIAL_BUSINESS } from './userHelpers.jsx';
 import { fetchProfile, saveProfile, saveBusiness, getUserId } from '../../api/profile.js';
 
+const emptyAlert = { isOpen: false, type: 'success', title: '', message: '' };
+
 const Profile = () => {
   const [profile,        setProfile]        = useState(INITIAL_PROFILE);
   const [business,       setBusiness]       = useState(INITIAL_BUSINESS);
@@ -17,14 +20,20 @@ const Profile = () => {
   const [loading,        setLoading]        = useState(true);
   const [loadError,      setLoadError]      = useState('');
 
-  // Modal state
+  // Edit modal state
   const [editModal,   setEditModal]   = useState(false);
   const [modalSaving, setModalSaving] = useState(false);
   const [modalError,  setModalError]  = useState('');
 
+  // AlertModal state — for profile save success/error/loading feedback
+  const [alert, setAlert] = useState(emptyAlert);
+
   const userId = getUserId();
 
-  // ── Load profile on mount ──────────────────────────────────────────────────
+  // closeAlert — dismisses AlertModal; on success also re-opens edit modal if needed
+  const closeAlert = () => setAlert(emptyAlert);
+
+  // Load profile on mount
   useEffect(() => {
     if (!userId) {
       setLoadError('You must be logged in to view this page.');
@@ -71,46 +80,78 @@ const Profile = () => {
     load();
   }, [userId]);
 
-  // ── Generic updaters ───────────────────────────────────────────────────────
+  // Generic updaters
   const updateProfile  = (key, val) => setProfile(prev => ({ ...prev, [key]: val }));
   const updateBusiness = (key, val) => setBusiness(prev => ({ ...prev, [key]: val }));
 
-  // ── Open modal — clear any previous error ──────────────────────────────────
+  // syncLocalStorageUser — merges updated fields into localStorage so header reflects changes immediately
+  const syncLocalStorageUser = (updatedFields) => {
+    try {
+      const stored = JSON.parse(localStorage.getItem('user') || '{}');
+      localStorage.setItem('user', JSON.stringify({ ...stored, ...updatedFields }));
+      // Notify header to re-read localStorage within the same tab
+      window.dispatchEvent(new Event('profileUpdated'));
+    } catch {
+      // Non-critical — header will show stale data until next login if this fails
+    }
+  };
+
+  // handleOpenEditModal — resets error state and opens the edit form
   const handleOpenEditModal = () => {
     setModalError('');
     setEditModal(true);
   };
 
-  // ── Save all 4 profile fields via PUT /api/user/profile/:id ───────────────
-  // Called by UserModal's onSave with { full_name, email, phone_number, location }
+  // handleSaveProfile — saves profile fields with loading/success/error AlertModal feedback
   const handleSaveProfile = async (updatedFields) => {
+    // Close the edit form and show loading alert
+    setEditModal(false);
     setModalSaving(true);
     setModalError('');
+    setAlert({ isOpen: true, type: 'loading', title: 'Saving changes…', message: '' });
+
     try {
       const res = await saveProfile(userId, updatedFields);
       if (res.success) {
-        // Update local state from what the server confirms was saved
         const d = res.data;
-        setProfile(prev => ({
-          ...prev,
-          full_name:    d.full_name    ?? prev.full_name,
-          email:        d.email        ?? prev.email,
-          phone_number: d.phone_number ?? prev.phone_number,
-          location:     d.location     ?? prev.location,
-        }));
-        setEditModal(false);
+        const newProfile = {
+          full_name:    d.full_name    ?? profile.full_name,
+          email:        d.email        ?? profile.email,
+          phone_number: d.phone_number ?? profile.phone_number,
+          location:     d.location     ?? profile.location,
+        };
+        setProfile(prev => ({ ...prev, ...newProfile }));
+        // Sync name/email into localStorage so header updates immediately
+        syncLocalStorageUser({ full_name: newProfile.full_name, email: newProfile.email });
+        // Show success alert — onEdit re-opens the form if user wants to keep editing
+        setAlert({
+          isOpen: true,
+          type:    'success',
+          title:   'Profile Updated!',
+          message: 'Your account and profile details have been saved successfully.',
+        });
       } else {
-        // Show API error inside the modal (e.g. "Email already in use")
-        setModalError(res.message || 'Failed to save changes.');
+        // Show error alert with the API message; onEdit re-opens form so user can fix and retry
+        setAlert({
+          isOpen: true,
+          type:    'error',
+          title:   'Save Failed',
+          message: res.message || 'Could not save your profile. Please try again.',
+        });
       }
     } catch {
-      setModalError('Network error: could not connect to server.');
+      setAlert({
+        isOpen: true,
+        type:    'error',
+        title:   'Connection Error',
+        message: 'Could not reach the server. Please check your connection and try again.',
+      });
     } finally {
       setModalSaving(false);
     }
   };
 
-  // ── Save business profile via PUT /api/user/business/:id ──────────────────
+  // handleSaveBusiness — upserts business profile via PUT /api/user/business/:id
   const handleSaveBusiness = async () => {
     const industry = business.industry === 'Other'
       ? (business.customIndustry || 'Other')
@@ -127,7 +168,7 @@ const Profile = () => {
     });
   };
 
-  // ── Render ─────────────────────────────────────────────────────────────────
+  // Render — loading state
   if (loading) {
     return (
       <PageTransition>
@@ -138,6 +179,7 @@ const Profile = () => {
     );
   }
 
+  // Render — error state
   if (loadError) {
     return (
       <PageTransition>
@@ -154,33 +196,41 @@ const Profile = () => {
 
         <h1 className="text-2xl font-bold text-brand-dark mb-6">Profile</h1>
 
-        <ProfileTopSection
-          profile={profile}
-          onAvatarChange={(url) => updateProfile('avatar_url', url)}
-          onEditProfile={handleOpenEditModal}
-          userId={userId}
-        />
+        {/* Row 1: Account & Profile (left) | Business Permit (right) */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4 items-start">
+          <ProfileTopSection
+            profile={profile}
+            onAvatarChange={(url) => {
+              updateProfile('avatar_url', url);
+              // Sync avatar_url to localStorage so header avatar updates immediately
+              syncLocalStorageUser({ avatar_url: url });
+            }}
+            onEditProfile={handleOpenEditModal}
+            userId={userId}
+          />
+          <DocumentUploadSection
+            business={business}
+            onChange={updateBusiness}
+            userId={userId}
+          />
+        </div>
 
-        <SecuritySection
-          sessionTimeout={sessionTimeout}
-          onTimeoutChange={setSessionTimeout}
-        />
-
-        <BusinessProfileSection
-          business={business}
-          onChange={updateBusiness}
-          onSave={handleSaveBusiness}
-        />
-
-        <DocumentUploadSection
-          business={business}
-          onChange={updateBusiness}
-          userId={userId}
-        />
+        {/* Row 2: Security (left) | Business Profile (right) */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4 items-start">
+          <SecuritySection
+            sessionTimeout={sessionTimeout}
+            onTimeoutChange={setSessionTimeout}
+          />
+          <BusinessProfileSection
+            business={business}
+            onChange={updateBusiness}
+            onSave={handleSaveBusiness}
+          />
+        </div>
 
       </div>
 
-      {/* Modal: Edit Account & Profile Details
+      {/* UserModal — Edit Account & Profile Details
           Edits: users.full_name, users.email, users.phone_number, users.location */}
       <UserModal
         isOpen={editModal}
@@ -194,6 +244,20 @@ const Profile = () => {
         onSave={handleSaveProfile}
         saving={modalSaving}
         saveError={modalError}
+      />
+
+      {/* AlertModal — profile save feedback: loading, success, or error */}
+      <AlertModal
+        isOpen={alert.isOpen}
+        type={alert.type}
+        title={alert.title}
+        message={alert.message}
+        onClose={closeAlert}
+        onEdit={
+          alert.type === 'success' || alert.type === 'error'
+            ? () => { closeAlert(); handleOpenEditModal(); }
+            : undefined
+        }
       />
 
     </PageTransition>

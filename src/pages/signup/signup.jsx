@@ -4,9 +4,9 @@ import Logo from '../../components/logo.jsx';
 import signupBg from '../../assets/signup-bg.jpg';
 import PageTransition from '../../components/pageTransition.jsx';
 import TermsModal from './termsModal.jsx';
+import AlertModal from '../../components/alertModal.jsx';
 import { registerEmployer } from '../../api/auth.js';
 import { Eye, EyeOff, AlertCircle } from 'lucide-react';
-import toast from 'react-hot-toast';
 
 const Signup = () => {
   const navigate = useNavigate();
@@ -14,8 +14,9 @@ const Signup = () => {
   const [formData, setFormData] = useState({
     email: '',
     name: '',
+    phone: '',
     address: '',
-    password: ''
+    password: '',
   });
 
   const [showPassword, setShowPassword] = useState(false);
@@ -24,22 +25,35 @@ const Signup = () => {
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
+  // AlertModal state
+  const [alert, setAlert] = useState({ isOpen: false, type: 'success', title: '', message: '' });
+  const closeAlert = () => {
+    setAlert(prev => ({ ...prev, isOpen: false }));
+    if (alert.type === 'success') navigate('/');
+  };
+
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
-    setErrorMessage(''); 
+    setErrorMessage('');
   };
 
   const handleSignup = async (e) => {
     e.preventDefault();
 
     if (!formData.email || !formData.name || !formData.address || !formData.password) {
-      setErrorMessage('Please fill in all fields.');
+      setErrorMessage('Please fill in all required fields.');
       return;
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(formData.email)) {
       setErrorMessage('Please enter a valid email address.');
+      return;
+    }
+
+    // Phone validation — optional but if provided must be valid PH format
+    if (formData.phone.trim() && !/^\+?[\d\s\-]{7,15}$/.test(formData.phone.trim())) {
+      setErrorMessage('Invalid phone number format (e.g. 09123456789).');
       return;
     }
 
@@ -54,31 +68,36 @@ const Signup = () => {
     }
 
     const payload = {
-      full_name: formData.name, 
-      email: formData.email,
-      password: formData.password,
-      location: formData.address,
-      role: 'employer',
-      role_id: 2
+      full_name:    formData.name,
+      email:        formData.email,
+      password:     formData.password,
+      location:     formData.address,
+      phone_number: formData.phone.trim() || null,
+      role:         'employer',
+      role_id:      2,
     };
 
     setIsLoading(true);
-    const loadToast = toast.loading('Creating your account...');
+    // Show loading state
+    setAlert({ isOpen: true, type: 'loading', title: 'Creating your account…', message: '' });
 
     try {
       const data = await registerEmployer(payload);
 
       if (data.success) {
-        toast.success(data.message || 'Success! Redirecting to login...', { id: loadToast });
-        setTimeout(() => navigate('/'), 2000);
+        setAlert({
+          isOpen: true,
+          type: 'success',
+          title: 'Account Created!',
+          message: data.message || 'Your employer account is ready. You can now log in.',
+        });
       } else {
-        // Backend sends specific errors like "Email already registered"
-        toast.error(data.message || 'Registration failed', { id: loadToast });
-        setErrorMessage(data.message);
+        setAlert({ isOpen: false, type: 'success', title: '', message: '' });
+        setErrorMessage(data.message || 'Registration failed. Please try again.');
       }
     } catch (err) {
-      toast.error('Server connection failed', { id: loadToast });
-      setErrorMessage("Network error: Could not connect to the server.");
+      setAlert({ isOpen: false, type: 'success', title: '', message: '' });
+      setErrorMessage('Network error: Could not connect to the server.');
     } finally {
       setIsLoading(false);
     }
@@ -88,11 +107,11 @@ const Signup = () => {
 
   return (
     <PageTransition>
-      <div 
+      <div
         className="min-h-screen w-full flex items-center justify-end pr-6 md:pr-20 lg:pr-32 bg-cover bg-center bg-no-repeat"
         style={{ backgroundImage: `url(${signupBg})` }}
       >
-        <div className="w-full max-w-lg bg-brand-dark rounded-[2rem] px-8 pt-4 pb-8 md:px-12 md:pt-6 md:pb-12 shadow-2xl flex flex-col shrink-0"> 
+        <div className="w-full max-w-lg bg-brand-dark rounded-[2rem] px-8 pt-4 pb-8 md:px-12 md:pt-6 md:pb-12 shadow-2xl flex flex-col shrink-0">
           <div className="flex flex-col items-center mb-6">
             <Logo className="mb-2" />
             <h1 className="text-3xl md:text-3xl font-bold text-brand-yellow leading-snug text-center">
@@ -116,7 +135,18 @@ const Signup = () => {
               name="name"
               value={formData.name}
               onChange={handleChange}
-              placeholder="Name (Company or Your Name)"
+              placeholder="Full Name"
+              className={inputClasses}
+              disabled={isLoading}
+            />
+
+            {/* Phone Number — new field */}
+            <input
+              type="tel"
+              name="phone"
+              value={formData.phone}
+              onChange={handleChange}
+              placeholder="Phone Number (+63)"
               className={inputClasses}
               disabled={isLoading}
             />
@@ -138,7 +168,7 @@ const Signup = () => {
                 value={formData.password}
                 onChange={handleChange}
                 placeholder="Password"
-                className={`${inputClasses} pr-12`} 
+                className={`${inputClasses} pr-12`}
                 disabled={isLoading}
               />
               <button
@@ -151,8 +181,8 @@ const Signup = () => {
             </div>
 
             <div className="flex items-center gap-3 pl-2 py-1">
-              <input 
-                type="checkbox" 
+              <input
+                type="checkbox"
                 id="terms"
                 checked={agreedToTerms}
                 onChange={(e) => setAgreedToTerms(e.target.checked)}
@@ -160,8 +190,8 @@ const Signup = () => {
                 disabled={isLoading}
               />
               <label htmlFor="terms" className="text-gray-300 text-sm select-none cursor-pointer">
-                Agree with the 
-                <button 
+                Agree with the
+                <button
                   type="button"
                   onClick={() => setShowTermsModal(true)}
                   className="text-brand-yellow hover:underline font-bold ml-1 hover:text-yellow-400 transition-colors"
@@ -184,7 +214,7 @@ const Signup = () => {
                 disabled={isLoading}
                 className={`w-full bg-brand-yellow hover:shadow-[0_0_20px_rgba(251,192,45,0.6)] text-white font-bold py-3 rounded-full text-lg transition-all duration-300 tracking-wide cursor-pointer ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
-                {isLoading ? 'Processing...' : 'Sign Up'}
+                {isLoading ? 'Processing…' : 'Sign Up'}
               </button>
             </div>
 
@@ -198,10 +228,18 @@ const Signup = () => {
         </div>
       </div>
 
-      <TermsModal 
-        isOpen={showTermsModal} 
+      <TermsModal
+        isOpen={showTermsModal}
         onClose={() => setShowTermsModal(false)}
         onAccept={() => setAgreedToTerms(true)}
+      />
+
+      <AlertModal
+        isOpen={alert.isOpen}
+        type={alert.type}
+        title={alert.title}
+        message={alert.message}
+        onClose={closeAlert}
       />
     </PageTransition>
   );

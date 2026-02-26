@@ -5,18 +5,27 @@ import Logo from '../../components/logo.jsx';
 import PageTransition from '../../components/pageTransition.jsx';
 import { loginUser } from '../../api/auth.js';
 import { Eye, EyeOff, AlertCircle } from 'lucide-react';
-import toast from 'react-hot-toast'; 
+import AlertModal from '../../components/alertModal.jsx';
 import ForgotPasswordModal from './forgotPasswordModal.jsx';
 
 const Login = () => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [errorMessage, setErrorMessage] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [isForgotModalOpen, setIsForgotModalOpen] = useState(false);
-  
+  const [email,            setEmail]            = useState('');
+  const [password,         setPassword]         = useState('');
+  const [showPassword,     setShowPassword]     = useState(false);
+  const [errorMessage,     setErrorMessage]     = useState('');
+  const [isLoading,        setIsLoading]        = useState(false);
+  const [isForgotModalOpen,setIsForgotModalOpen]= useState(false);
+
+  // AlertModal state
+  const [alert, setAlert] = useState({ isOpen: false, type: 'success', title: '', message: '' });
+
   const navigate = useNavigate();
+
+  const closeAlert = () => {
+    const wasSuccess = alert.type === 'success';
+    setAlert(prev => ({ ...prev, isOpen: false }));
+    if (wasSuccess) navigate('/dashboard');
+  };
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -33,7 +42,7 @@ const Login = () => {
     }
 
     setIsLoading(true);
-    const loginToast = toast.loading('Verifying credentials...');
+    setAlert({ isOpen: true, type: 'loading', title: 'Verifying credentials…', message: '' });
 
     try {
       const response = await loginUser({ email, password });
@@ -41,26 +50,43 @@ const Login = () => {
       if (response.success) {
         const user = response.data.user;
 
-        if (user.role !== 'employer') {
-          toast.error("Access denied. This login is for employers only.", { id: loginToast });
-          setErrorMessage("Unauthorized: This account is not an employer account.");
+        // Extra frontend guard — backend already enforces this, but belt-and-suspenders
+        if (user.role !== 'employer' || user.role_id !== 2) {
+          setAlert({
+            isOpen: true,
+            type: 'error',
+            title: 'Access Denied',
+            message: 'This portal is for employer accounts only. Please use the correct login page for your account.',
+          });
           setIsLoading(false);
-          return; 
+          return;
         }
 
         localStorage.setItem('token', response.data.token);
         localStorage.setItem('user', JSON.stringify(user));
-        
-        toast.success(response.message || "Welcome back!", { id: loginToast });
-        
-        setTimeout(() => navigate('/dashboard'), 1000); 
+
+        setAlert({
+          isOpen: true,
+          type: 'success',
+          title: 'Welcome Back!',
+          message: `Logged in as ${user.full_name || user.email}. Redirecting to your dashboard…`,
+        });
       } else {
-        toast.error(response.message || "Login failed", { id: loginToast });
-        setErrorMessage(response.message);
+        setAlert({
+          isOpen: true,
+          type: 'error',
+          title: 'Login Failed',
+          message: response.message || 'Invalid email or password.',
+        });
+        setErrorMessage(response.message || 'Login failed.');
       }
     } catch (err) {
-      toast.error("Server connection failed", { id: loginToast });
-      setErrorMessage("Network error: Server is offline.");
+      setAlert({
+        isOpen: true,
+        type: 'error',
+        title: 'Connection Error',
+        message: 'Could not reach the server. Please check your connection and try again.',
+      });
     } finally {
       setIsLoading(false);
     }
@@ -75,7 +101,6 @@ const Login = () => {
         style={{ backgroundImage: `url(${loginBg})` }}
       >
         <div className="w-full max-w-lg bg-brand-dark rounded-[2rem] px-8 pt-4 pb-8 md:px-12 md:pt-6 md:pb-12 shadow-2xl flex flex-col shrink-0">
-          
           <Logo className="mb-2 -mt-2" />
 
           <h1 className="text-3xl md:text-4xl font-bold text-brand-yellow mb-8 leading-snug text-center">
@@ -87,10 +112,7 @@ const Login = () => {
               <input
                 type="email"
                 value={email}
-                onChange={(e) => {
-                  setEmail(e.target.value);
-                  setErrorMessage('');
-                }}
+                onChange={(e) => { setEmail(e.target.value); setErrorMessage(''); }}
                 placeholder="Email address"
                 className={inputBaseClasses}
                 disabled={isLoading}
@@ -101,10 +123,7 @@ const Login = () => {
               <input
                 type={showPassword ? 'text' : 'password'}
                 value={password}
-                onChange={(e) => {
-                  setPassword(e.target.value);
-                  setErrorMessage('');
-                }}
+                onChange={(e) => { setPassword(e.target.value); setErrorMessage(''); }}
                 placeholder="Password"
                 className={`${inputBaseClasses} pr-12`}
                 disabled={isLoading}
@@ -126,8 +145,8 @@ const Login = () => {
             )}
 
             <div className="w-full text-left pt-1">
-              <button 
-                type="button" 
+              <button
+                type="button"
                 onClick={() => setIsForgotModalOpen(true)}
                 className="text-brand-yellow text-sm hover:underline hover:text-yellow-400 transition-colors tracking-wide"
               >
@@ -141,14 +160,14 @@ const Login = () => {
                 disabled={isLoading}
                 className={`w-full bg-brand-yellow hover:shadow-[0_0_20px_rgba(251,192,45,0.6)] text-white font-bold py-4 rounded-full text-lg transition-all duration-300 tracking-wide cursor-pointer ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
-                {isLoading ? 'Verifying...' : 'Login'}
+                {isLoading ? 'Verifying…' : 'Login'}
               </button>
             </div>
 
             <div className="text-center mt-6 pt-2">
               <span className="text-gray-300 text-sm">Don't have an account? </span>
-              <Link 
-                to="/signup" 
+              <Link
+                to="/signup"
                 className="text-brand-yellow text-sm font-bold hover:underline hover:text-yellow-400 transition-colors"
               >
                 Sign Up
@@ -156,13 +175,20 @@ const Login = () => {
             </div>
           </form>
 
-          <ForgotPasswordModal 
-            isOpen={isForgotModalOpen} 
-            onClose={() => setIsForgotModalOpen(false)} 
+          <ForgotPasswordModal
+            isOpen={isForgotModalOpen}
+            onClose={() => setIsForgotModalOpen(false)}
           />
-
         </div>
       </div>
+
+      <AlertModal
+        isOpen={alert.isOpen}
+        type={alert.type}
+        title={alert.title}
+        message={alert.message}
+        onClose={closeAlert}
+      />
     </PageTransition>
   );
 };
