@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { ChevronDown, TrendingUp, BarChart3 } from 'lucide-react';
 
-const Dashboard = () => {
+const Report = () => {
   const [activeView, setActiveView] = useState('Hiring Summary');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
@@ -251,4 +251,4 @@ const EngagementTable = () => (
   </div>
 );
 
-export default Dashboard;
+export default Report;
